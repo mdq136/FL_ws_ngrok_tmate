@@ -34,7 +34,7 @@ eval_loader = torch.utils.data.DataLoader(dataset=eval_dataset, batch_size=32, s
 model = SimpleNet().to(torch.device('cpu'))
 
 # Load the saved model weights
-model.load_state_dict(torch.load('/Users/doanquangmanh/Downloads/global_model.pth'))
+model.load_state_dict(torch.load('global_model.pth'))
 
 # Evaluate the model
 def evaluate_model(model, dataloader):
