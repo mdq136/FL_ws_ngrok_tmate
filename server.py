@@ -106,6 +106,8 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    global count
+    count -= 1
     sid = request.sid
     username = clients.get(sid, {}).get('username', 'Unknown')
     print(f"Client {username} disconnected")
