@@ -42,6 +42,7 @@ users = {
 
 clients = {}
 num_clients = 2  # Number of expected clients
+count = 0
 
 MODEL_DIR = 'saved_models'
 os.makedirs(MODEL_DIR, exist_ok=True)
@@ -91,7 +92,7 @@ def average_model_weights():
 
     # Update the global model with averaged weights
     global_model.load_state_dict(averaged_weights)
-
+    print("Loading weights.....")
     # Broadcast the averaged global model to all clients
     broadcast_model()
 
@@ -113,6 +114,8 @@ def handle_disconnect():
 
 @socketio.on('register')
 def handle_register(data):
+    global count
+    count += 1
     sid = request.sid
     username = data.get('username')
     password = data.get('password')
@@ -121,8 +124,9 @@ def handle_register(data):
         clients[sid] = {'username': username}
         print(f"Client {username} registered")
         emit('registration_success', {'message': 'Registration successful'})
-        print(len(clients) == num_clients)
-        if len(clients) == num_clients:
+        # if len(clients) == num_clients:
+        if count == num_clients:
+            print("Start!!!!!")
             broadcast_model()
     else:
         print(f"Client {username} failed to register")
@@ -147,7 +151,7 @@ def handle_client_update(data):
     # Update global model
     global_model.load_state_dict(model_state_dict)
     optimizer.load_state_dict(optimizer_state_dict)
-
+    save_model_state(model_state_dict, 'global_model.pth')
     # Averaging step
     if all('model_state_dict' in clients[client_sid] for client_sid in clients):
         average_model_weights()
