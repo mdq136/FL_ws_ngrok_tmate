@@ -13,12 +13,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--server', type=str)
 parser.add_argument('-u', '--username', type=str)
 parser.add_argument('-p', '--password', type=str)
+parser.add_argument('-e', '--epochs', type=int)
 
 args = parser.parse_args()
 
 server = args.server
 username = args.username
 password = args.password
+epochs = args.epochs
 
 # Define a simple neural network model
 class SimpleNet(nn.Module):
@@ -85,7 +87,7 @@ def convert_tensors_to_lists(state_dict):
 
 def train():
     local_model.train()
-    for epoch in tqdm(range(100)):  # Train for one epoch
+    for epoch in tqdm(range(epochs)):  # Train for one epoch
         total_loss = 0
         for batch_idx, (data, target) in enumerate(train_loader):
             optimizer.zero_grad()
@@ -107,6 +109,7 @@ def train():
         'optimizer_state_dict': optimizer_state_dict,
         'loss': avg_loss
     })
+    sio.disconnect()
 
 
 
