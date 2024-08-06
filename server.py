@@ -76,7 +76,8 @@ def average_model_weights():
 
     # Initialize a dictionary to store accumulated weights
     accumulated_weights = {}
-    num_clients_contributed = len(clients)
+    # num_clients_contributed = len(clients)
+    num_clients_contributed = count
 
     # Sum up the model weights from all clients
     for client_sid in clients:
@@ -127,7 +128,8 @@ def handle_register(data):
         print(f"Client {username} registered")
         emit('registration_success', {'message': 'Registration successful'})
         # if len(clients) == num_clients:
-        if count == num_clients:
+        print(f"Total: ------------------{count}---------------------")
+        if count >= num_clients:
             print("Start!!!!!")
             broadcast_model()
     else:
