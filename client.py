@@ -77,7 +77,6 @@ def on_registration_failure(data):
 def on_global_model(data):
     print("Received global model")
     model_state_dict = {key: torch.tensor(value) for key, value in data.items()}
-    print(type(model_state_dict))
     local_model.load_state_dict(model_state_dict)
     # Start local training
     train()
@@ -118,7 +117,7 @@ def train():
     try:
         # print("Hello")
         # sio.emit('hello',{'hello':"json.dumps(model_state_dict)"})
-        sio.emit('client_update',{'hello':serialize_state_dict(local_model.state_dict())})
+        sio.emit('client_update',serialize_state_dict(local_model.state_dict()))
         # time.sleep(1)
         # sio.emit('hello',{'hello':"json.dumps(model_state_dict)"})
     except Exception as err:
@@ -130,7 +129,7 @@ def train():
     # })
     print("Sending update")
     # os.wait()
-    sio.disconnect()
+    # sio.disconnect()
 
 
 
