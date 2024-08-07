@@ -4,6 +4,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
+# import time
+import json
+import zlib
+import torchvision.transforms as transforms
+from torchvision.datasets import MNIST
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -41,7 +46,7 @@ users = {
 }
 
 clients = {}
-num_clients = 2  # Number of expected clients
+num_clients = 1  # Number of expected clients
 count = 0
 
 MODEL_DIR = 'saved_models'
@@ -55,14 +60,15 @@ def save_model_state(model_state_dict, filename):
 def broadcast_model():
     print("Sending global model")
     global global_model
+    if os.path.exists('saved_models/global_model.pth'):
+        global_model.load_state_dict(torch.load('saved_models/global_model.pth'))
     model_state_dict = global_model.state_dict()
-    
     # Convert model state dictionary tensors to lists
-    model_state_list = {key: value.tolist() for key, value in model_state_dict.items()}
+    model_state_list = {key: value.cpu().tolist() for key, value in model_state_dict.items()}
     for client_sid in clients:
         socketio.emit('global_model', model_state_list, to=client_sid)
     # Save model state after broadcasting
-    save_model_state(model_state_dict, 'global_model.pth')
+    # save_model_state(model_state_dict, 'global_model.pth')
 
 def convert_nested_list_to_tensor(data):
     if isinstance(data, list):
@@ -92,10 +98,11 @@ def average_model_weights():
     averaged_weights = {key: value / num_clients_contributed for key, value in accumulated_weights.items()}
 
     # Update the global model with averaged weights
+    save_model_state(averaged_weights, 'global_model.pth')
     global_model.load_state_dict(averaged_weights)
     print("Loading weights.....")
     # Broadcast the averaged global model to all clients
-    broadcast_model()
+    # broadcast_model()
 
 @app.route('/')
 def index():
@@ -108,7 +115,11 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     global count
-    count -= 1
+    if count <= 0:
+        count = 0
+    else:
+        count -= 1
+    print(f"Total: ------------------({count})---------------------")
     sid = request.sid
     username = clients.get(sid, {}).get('username', 'Unknown')
     print(f"Client {username} disconnected")
@@ -128,7 +139,7 @@ def handle_register(data):
         print(f"Client {username} registered")
         emit('registration_success', {'message': 'Registration successful'})
         # if len(clients) == num_clients:
-        print(f"Total: ------------------{count}---------------------")
+        print(f"Total: ------------------({count})---------------------")
         if count >= num_clients:
             print("Start!!!!!")
             broadcast_model()
@@ -136,28 +147,34 @@ def handle_register(data):
         print(f"Client {username} failed to register")
         emit('registration_failure', {'message': 'Invalid username or password'})
 
+def deserialize_state_dict(compressed_data):
+    json_str = zlib.decompress(compressed_data).decode('utf-8')
+    state_dict = json.loads(json_str)
+    return {k: torch.tensor(v) for k, v in state_dict.items()}
+
 @socketio.on('client_update')
 def handle_client_update(data):
-    global global_model, optimizer
-
+    # global global_model, optimizer
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     sid = request.sid
     username = clients.get(sid, {}).get('username', 'Unknown')
     print(f"Received update from {username}")
 
     # Convert lists back to tensors
-    model_state_dict = {key: torch.tensor(value) for key, value in data['model_state_dict'].items()}
-    optimizer_state_dict = {key: convert_nested_list_to_tensor(value) for key, value in data['optimizer_state_dict'].items()}
-    client_loss = data['loss']
-
+    # model_state_dict = {key: torch.tensor(value) for key, value in data['model_state_dict'].items()}
+    # optimizer_state_dict = {key: convert_nested_list_to_tensor(value) for key, value in data['optimizer_state_dict'].items()}
+    # client_loss = data['loss']
+    model_state_dict = deserialize_state_dict(data)
     # Store the model state dict received from the client
     clients[sid]['model_state_dict'] = model_state_dict
 
     # Update global model
-    global_model.load_state_dict(model_state_dict)
-    optimizer.load_state_dict(optimizer_state_dict)
-    save_model_state(model_state_dict, 'global_model.pth')
+    # global_model.load_state_dict(model_state_dict)
+    # optimizer.load_state_dict(optimizer_state_dict)
+    # save_model_state(model_state_dict, 'global_model.pth')
     # Averaging step
     if all('model_state_dict' in clients[client_sid] for client_sid in clients):
+        print("Average after receiving enough model_state_dict from clients")
         average_model_weights()
 
 if __name__ == '__main__':
