@@ -109,7 +109,7 @@ def train():
         'optimizer_state_dict': optimizer_state_dict,
         'loss': avg_loss
     })
-    sio.disconnect()
+    # sio.disconnect()
 
 
 
