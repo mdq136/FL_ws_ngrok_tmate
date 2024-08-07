@@ -6,6 +6,9 @@ from torchvision import datasets, transforms
 import numpy as np
 from tqdm import tqdm
 import argparse
+import time
+import json
+import zlib
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -74,6 +77,7 @@ def on_registration_failure(data):
 def on_global_model(data):
     print("Received global model")
     model_state_dict = {key: torch.tensor(value) for key, value in data.items()}
+    print(type(model_state_dict))
     local_model.load_state_dict(model_state_dict)
     # Start local training
     train()
@@ -84,6 +88,12 @@ def convert_tensors_to_lists(state_dict):
     elif isinstance(state_dict, torch.Tensor):
         return state_dict.tolist()
     return state_dict
+
+def serialize_state_dict(state_dict):
+    serialized_dict = {k: v.cpu().tolist() for k, v in state_dict.items()}
+    json_str = json.dumps(serialized_dict)
+    compressed_data = zlib.compress(json_str.encode())
+    return compressed_data
 
 def train():
     local_model.train()
@@ -101,15 +111,26 @@ def train():
         print(f"Training epoch loss: {avg_loss}")
 
         # After training, send model updates to the server
-        model_state_dict = {key: value.tolist() for key, value in local_model.state_dict().items()}
-        optimizer_state_dict = {key: list(value) for key, value in optimizer.state_dict().items()}
+        # model_state_dict = {key: value.tolist() for key, value in local_model.state_dict().items()}
+    # model_state_dict = {key: value.cpu().tolist() for key, value in local_model.state_dict().items()}
+    # optimizer_state_dict = {key: list(value) for key, value in optimizer.state_dict().items()}
 
-    sio.emit('client_update', {
-        'model_state_dict': model_state_dict,
-        'optimizer_state_dict': optimizer_state_dict,
-        'loss': avg_loss
-    })
-    # sio.disconnect()
+    try:
+        # print("Hello")
+        # sio.emit('hello',{'hello':"json.dumps(model_state_dict)"})
+        sio.emit('client_update',{'hello':serialize_state_dict(local_model.state_dict())})
+        # time.sleep(1)
+        # sio.emit('hello',{'hello':"json.dumps(model_state_dict)"})
+    except Exception as err:
+        print(f"Error sending model state: {err}")
+    # sio.emit('hello', {
+    #     'model_state_dict': model_state_dict,
+    #     'optimizer_state_dict': optimizer_state_dict,
+    #     'loss': avg_loss
+    # })
+    print("Sending update")
+    # os.wait()
+    sio.disconnect()
 
 
 
